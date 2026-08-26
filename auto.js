@@ -1,6 +1,6 @@
 /**
  * CEDULAS CFDI - VERSION 3.4
- *
+ *juan
  * Reglas principales:
  * 1) Integra CFDI tipo I y complementos de pago tipo P sin duplicar pagos totales
  *    cuya factura relacionada ya se encuentre en la misma carpeta.
