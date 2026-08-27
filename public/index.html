@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cedulas CFDI</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Cedulas CFDI</h1>
+      <p>Procesa XML y ZIP para generar tablas de facturas emitidas y recibidas.</p>
+    </div>
+    <button id="exportBtn" class="btn btn-success" disabled>Exportar Excel</button>
+  </header>
+
+  <main>
+    <section class="panel controls">
+      <div class="field">
+        <label for="modo">Periodo</label>
+        <select id="modo">
+          <option value="auto" selected>Automático</option>
+          <option value="mensual">Mensual</option>
+          <option value="trimestral">Trimestral</option>
+          <option value="anual">Anual</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="anio">Año</label>
+        <input id="anio" type="number" min="2000" max="2100">
+      </div>
+      <div class="field period-field" data-for="mensual">
+        <label for="mes">Mes</label>
+        <select id="mes">
+          <option value="1">Enero</option>
+          <option value="2">Febrero</option>
+          <option value="3">Marzo</option>
+          <option value="4">Abril</option>
+          <option value="5">Mayo</option>
+          <option value="6">Junio</option>
+          <option value="7">Julio</option>
+          <option value="8">Agosto</option>
+          <option value="9">Septiembre</option>
+          <option value="10">Octubre</option>
+          <option value="11">Noviembre</option>
+          <option value="12">Diciembre</option>
+        </select>
+      </div>
+      <div class="field period-field hidden" data-for="trimestral">
+        <label for="trimestre">Trimestre</label>
+        <select id="trimestre">
+          <option value="1">1: Ene - Mar</option>
+          <option value="2">2: Abr - Jun</option>
+          <option value="3">3: Jul - Sep</option>
+          <option value="4">4: Oct - Dic</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="upload-grid">
+      <div class="panel upload">
+        <div class="upload-head">
+          <h2>Emitidas</h2>
+          <span id="emitidasCount">0 archivos</span>
+        </div>
+        <input id="emitidas" type="file" accept=".xml,.zip" multiple>
+      </div>
+      <div class="panel upload">
+        <div class="upload-head">
+          <h2>Recibidas</h2>
+          <span id="recibidasCount">0 archivos</span>
+        </div>
+        <input id="recibidas" type="file" accept=".xml,.zip" multiple>
+      </div>
+    </section>
+
+    <section class="panel quick-upload">
+      <div class="field">
+        <label for="tipoCarga">Tipo de archivo</label>
+        <select id="tipoCarga">
+          <option value="emitidas">Emitida</option>
+          <option value="recibidas">Recibida</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="quickFiles">XML o ZIP</label>
+        <input id="quickFiles" type="file" accept=".xml,.zip" multiple>
+      </div>
+      <button id="addQuickFiles" class="btn btn-success" type="button">Agregar al tipo seleccionado</button>
+    </section>
+
+    <section class="actions">
+      <button id="processBtn" class="btn btn-primary">Procesar archivos</button>
+      <button id="clearBtn" class="btn btn-soft">Limpiar</button>
+      <span id="status">Listo para cargar XML o ZIP.</span>
+    </section>
+
+    <section id="summary" class="summary hidden"></section>
+    <section id="tables" class="tables"></section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
