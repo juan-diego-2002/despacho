@@ -470,7 +470,7 @@ function analizarConceptos_(root, ns) {
       resultado.tieneNoObjeto = true;
     }
   }
-  return resultado;
+  return resultado; 
 }
 
 function obtenerIvaCfdi_(root, ns) {
