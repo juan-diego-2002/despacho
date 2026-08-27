@@ -26,7 +26,6 @@ async function crearExcel(reporte) {
   ${diagnosticoHtml(reporte.diagnostico || {})}
   ${tablaHtml('FACTURAS EMITIDAS', reporte.emitidas, 'emitidas', 3, 6)}
   ${tablaHtml('FACTURAS RECIBIDAS', reporte.recibidas, 'recibidas', 3, 9)}
-  ${advertenciasHtml(reporte.advertencias || [])}
 </body>
 </html>`;
   return Buffer.from(html, 'utf8');
@@ -60,15 +59,6 @@ function tablaHtml(titulo, tabla, clase, moneyStart, moneyEnd) {
     <caption><b>${titulo}</b></caption>
     <thead><tr>${tabla.encabezados.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
     <tbody>${filas}${totales}</tbody>
-  </table>`;
-}
-
-function advertenciasHtml(advertencias) {
-  if (!advertencias.length) return '';
-  return `<table>
-    <caption><b>ADVERTENCIAS Y EXCLUSIONES</b></caption>
-    <thead><tr><th>TIPO</th><th>CLASIFICACION</th><th>FACTURA</th><th>ORIGEN</th><th>MENSAJE</th></tr></thead>
-    <tbody>${advertencias.map((item) => `<tr>${item.map((valor) => `<td>${escapeHtml(valor)}</td>`).join('')}</tr>`).join('')}</tbody>
   </table>`;
 }
 

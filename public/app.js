@@ -16,7 +16,6 @@ const addQuickFilesBtn = document.querySelector('#addQuickFiles');
 const statusEl = document.querySelector('#status');
 const summaryEl = document.querySelector('#summary');
 const tablesEl = document.querySelector('#tables');
-const warningsEl = document.querySelector('#warnings');
 let ultimoReporte = null;
 const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000' : '';
 
@@ -45,7 +44,6 @@ function actualizarCamposPeriodo() {
 function actualizarConteos() {
   document.querySelector('#emitidasCount').textContent = `${form.emitidas.files.length} archivos`;
   document.querySelector('#recibidasCount').textContent = `${form.recibidas.files.length} archivos`;
-  
 }
 
 function agregarCargaRapida() {
@@ -131,9 +129,7 @@ function limpiar() {
   ultimoReporte = null;
   tablesEl.innerHTML = '';
   summaryEl.innerHTML = '';
-  warningsEl.innerHTML = '';
   summaryEl.classList.add('hidden');
-  warningsEl.classList.add('hidden');
   exportBtn.disabled = true;
   statusEl.textContent = 'Listo para cargar XML o ZIP.';
   actualizarConteos();
@@ -146,7 +142,6 @@ function renderReporte(reporte) {
     <div class="metric"><strong>${escapeHtml(reporte.recibidas.filas.length)}</strong><span>Recibidas integradas</span></div>
     <div class="metric"><strong>${escapeHtml((reporte.diagnostico?.xmlEmitidas || 0) + (reporte.diagnostico?.xmlRecibidas || 0))}</strong><span>XML encontrados</span></div>
     <div class="metric"><strong>${escapeHtml((reporte.diagnostico?.emitidasFueraPeriodo || 0) + (reporte.diagnostico?.recibidasFueraPeriodo || 0))}</strong><span>Fuera del periodo</span></div>
-    <div class="metric"><strong>${escapeHtml(reporte.advertencias.length)}</strong><span>Advertencias</span></div>
     <div class="metric"><strong>${escapeHtml(reporte.periodo)}</strong><span>${escapeHtml(reporte.cliente.rfc || 'RFC no detectado')}</span></div>
   `;
 
@@ -154,14 +149,6 @@ function renderReporte(reporte) {
     renderTabla('FACTURAS EMITIDAS', reporte.emitidas, 'emitidas'),
     renderTabla('FACTURAS RECIBIDAS', reporte.recibidas, 'recibidas')
   ].join('');
-
-  if (reporte.advertencias.length) {
-    warningsEl.classList.remove('hidden');
-    warningsEl.innerHTML = `<h3>Advertencias y exclusiones</h3><ul>${reporte.advertencias.map((item) => `<li>${escapeHtml(item.join(' | '))}</li>`).join('')}</ul>`;
-  } else {
-    warningsEl.classList.add('hidden');
-    warningsEl.innerHTML = '';
-  }
 }
 
 function renderTabla(titulo, tabla, clase) {
