@@ -21,6 +21,7 @@ let ultimoReporte = null;
 const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000' : '';
 
 const hoy = new Date();
+form.modo.value = 'auto';
 form.anio.value = hoy.getFullYear();
 form.mes.value = hoy.getMonth() + 1;
 
@@ -44,6 +45,7 @@ function actualizarCamposPeriodo() {
 function actualizarConteos() {
   document.querySelector('#emitidasCount').textContent = `${form.emitidas.files.length} archivos`;
   document.querySelector('#recibidasCount').textContent = `${form.recibidas.files.length} archivos`;
+  
 }
 
 function agregarCargaRapida() {

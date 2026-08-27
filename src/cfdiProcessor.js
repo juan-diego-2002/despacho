@@ -26,7 +26,9 @@ async function procesarLoteCfdi({ emitidas, recibidas, filtro }) {
   const cliente = validarClienteUnico(emitidasProcesadas, recibidasProcesadas);
   const emitidasFiltradas = filtrarRegistros(emitidasProcesadas.registros, filtro);
   const recibidasFiltradas = filtrarRegistros(recibidasProcesadas.registros, filtro);
-  const periodo = describirPeriodo(filtro);
+  const periodo = filtro && filtro.modo === 'auto'
+    ? detectarPeriodoRegistros(emitidasProcesadas.registros.concat(recibidasProcesadas.registros))
+    : describirPeriodo(filtro);
   const advertencias = emitidasProcesadas.advertencias.concat(recibidasProcesadas.advertencias);
   agregarAdvertenciaPeriodo(advertencias, 'emitida', emitidasXml.length, emitidasProcesadas.registros, emitidasFiltradas, filtro);
   agregarAdvertenciaPeriodo(advertencias, 'recibida', recibidasXml.length, recibidasProcesadas.registros, recibidasFiltradas, filtro);
@@ -390,6 +392,7 @@ function recorrer(valor, cb, claveActual = '') {
 }
 
 function filtrarRegistros(registros, filtro) {
+  if (!filtro || filtro.modo === 'auto') return registros;
   return registros.filter((registro) => {
     const fecha = new Date(registro.fechaIso || registro.fechaOrden || 0);
     if (Number.isNaN(fecha.getTime())) return false;
@@ -406,10 +409,26 @@ function filtrarRegistros(registros, filtro) {
 }
 
 function describirPeriodo(filtro) {
+  if (!filtro || filtro.modo === 'auto') return 'AUTOMATICO';
   const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
   if (filtro.modo === 'anual') return `ANUAL ${filtro.anio}`;
   if (filtro.modo === 'trimestral') return `TRIMESTRE ${filtro.trimestre} ${filtro.anio}`;
   return `${meses[filtro.mes - 1] || 'MES'} ${filtro.anio}`;
+}
+
+function detectarPeriodoRegistros(registros) {
+  const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+  const periodos = {};
+  registros.forEach((registro) => {
+    const fecha = new Date(registro.fechaIso || registro.fechaOrden || 0);
+    if (Number.isNaN(fecha.getTime())) return;
+    const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+    periodos[clave] = `${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
+  });
+  const claves = Object.keys(periodos).sort();
+  if (!claves.length) return 'PERIODO NO DETECTADO';
+  if (claves.length === 1) return periodos[claves[0]];
+  return `VARIOS PERIODOS (${claves.map((clave) => periodos[clave]).join(', ')})`;
 }
 
 function agregarAdvertenciaPeriodo(advertencias, tipo, xmlEncontrados, registros, filtrados, filtro) {
