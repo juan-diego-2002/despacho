@@ -1,5 +1,12 @@
 const ExcelJS = require('exceljs');
 
+const COLORES_ESTADO = {
+    PPD: 'FCDB57',
+    COMPLEMENTO: '9FB0FF',
+    CANCELADA: 'FC3030',
+    REVISAR: 'F4CCCC'
+};
+
 /**
  * ============================================================
  * CREAR EXCEL
@@ -811,6 +818,8 @@ function agregarTabla(
 
     for (const datos of filas) {
 
+        const estado = obtenerEstadoFila(datos, tipo);
+
         datos.forEach(
             (valor, index) => {
 
@@ -889,51 +898,12 @@ function agregarTabla(
                 // ESTATUS
                 // -------------------------------------------------
 
-                const texto =
-                    String(
-                        valor ?? ''
-                    ).toUpperCase();
-
-                if (texto === 'CANCELADA') {
-
+                if (estado) {
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
                         fgColor: {
-                            argb: 'EA9999'
-                        }
-                    };
-                }
-
-                if (texto === 'REVISAR') {
-
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: {
-                            argb: 'F4CCCC'
-                        }
-                    };
-                }
-
-                if (texto === 'COMPLEMENTO') {
-
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: {
-                            argb: 'FFE699'
-                        }
-                    };
-                }
-
-                if (texto === 'PPD') {
-
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: {
-                            argb: 'FFF2CC'
+                            argb: COLORES_ESTADO[estado]
                         }
                     };
                 }
@@ -1018,6 +988,23 @@ function agregarTabla(
     fila++;
 
     return fila;
+}
+
+
+function obtenerEstadoFila(fila, tipo) {
+
+    const estado =
+        fila[fila.length - 1] === 'REVISAR' ||
+        fila[fila.length - 1] === 'CANCELADA'
+            ? fila[fila.length - 1]
+            : fila[tipo === 'emitidas' ? 7 : 11];
+
+    const texto =
+        String(estado ?? '').toUpperCase();
+
+    return COLORES_ESTADO[texto]
+        ? texto
+        : null;
 }
 
 
