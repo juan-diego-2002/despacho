@@ -604,14 +604,17 @@ function procesarXmlCfdi(
     );
   }
 
-  if (tipoComprobante !== 'I') {
+  if (
+    tipoComprobante !== 'I' &&
+    tipoComprobante !== 'E'
+  ) {
 
     advertencias.push([
       `EXCLUIDO TIPO ${tipoComprobante || 'VACIO'}`,
       tipo,
       factura,
       origen,
-      'La cedula integra CFDI I y complementos P; este tipo se excluye.'
+      'La cedula integra CFDI I, notas de credito E y complementos P; este tipo se excluye.'
     ]);
 
     return registroExcluido(
@@ -630,7 +633,7 @@ function procesarXmlCfdi(
       tipo,
       factura,
       origen,
-      'El CFDI tipo I no tiene importe positivo.'
+        'El CFDI no tiene importe positivo.'
     ]);
 
     return registroExcluido(
@@ -724,8 +727,35 @@ function procesarXmlCfdi(
           ),
         );
 
+  if (tipoComprobante === 'E') {
+
+    const ultimaColumnaMonetaria =
+      tipo === 'emitida'
+        ? 6
+        : 10;
+
+    for (
+      let columna = 3;
+      columna <= ultimaColumnaMonetaria;
+      columna++
+    ) {
+      fila[columna] =
+        -Math.abs(Number(fila[columna]) || 0);
+    }
+
+    advertencias.push([
+      'NOTA DE CREDITO',
+      tipo,
+      factura,
+      origen,
+      'CFDI tipo E integrado con importes negativos.'
+    ]);
+  }
+
   fila.push(
-    clasificarMetodo(metodoPago)
+    tipoComprobante === 'E'
+      ? 'NC'
+      : clasificarMetodo(metodoPago)
   );
 
   fila.push(
@@ -738,8 +768,8 @@ function procesarXmlCfdi(
 
   const baseCedula =
     tipo === 'emitida'
-      ? fila[3] + fila[4]
-      : fila[6];
+      ? Math.abs(fila[3] + fila[4])
+      : Math.abs(fila[6]);
 
   if (
     Math.abs(

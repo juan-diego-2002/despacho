@@ -3,6 +3,7 @@ const ExcelJS = require('exceljs');
 const COLORES_ESTADO = {
     PPD: 'FCDB57',
     COMPLEMENTO: '9FB0FF',
+    NC: 'F8CBAD',
     CANCELADA: 'FC3030',
     REVISAR: 'F4CCCC'
 };
