@@ -874,7 +874,7 @@ function agregarTabla(
                 if (
                     tipo === 'recibidas' &&
                     index >= 3 &&
-                    index <= 9
+                    index <= 10
                 ) {
 
                     cell.numFmt =
@@ -986,7 +986,7 @@ function agregarTabla(
             if (
                 tipo === 'recibidas' &&
                 index >= 3 &&
-                index <= 9
+                index <= 10
             ) {
 
                 cell.value =
@@ -1041,7 +1041,7 @@ function calcularTotalesTabla(
     const fin =
         tipo === 'emitidas'
             ? 6
-            : 9;
+            : 10;
 
     for (
         let i = inicio;
@@ -1227,7 +1227,7 @@ function crearHojaResumen(
         const totalRecibidas =
             calcularTotalFilas(
                 recibidas,
-                9
+                10
             );
 
         granTotalEmitidas +=
