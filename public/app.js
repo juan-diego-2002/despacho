@@ -111,7 +111,7 @@ async function exportar() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cedula-cfdi-${ultimoReporte.periodo.toLowerCase().replaceAll(' ', '-')}.xls`;
+    a.download = `cedula-cfdi-${ultimoReporte.periodo.toLowerCase().replaceAll(' ', '-')}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
     statusEl.textContent = 'Excel generado.';
@@ -153,10 +153,10 @@ function renderReporte(reporte) {
 
 function renderTabla(titulo, tabla, clase) {
   const moneyStart = clase === 'emitidas' ? 3 : 3;
-  const moneyEnd = clase === 'emitidas' ? 6 : 9;
+  const moneyEnd = clase === 'emitidas' ? 6 : 10;
   const rows = tabla.filas.length
     ? tabla.filas.map((fila) => {
-      const rowClass = String(fila[fila.length - 1] === 'REVISAR' || fila[fila.length - 1] === 'CANCELADA' ? fila[fila.length - 1] : fila[clase === 'emitidas' ? 7 : 10]).toUpperCase();
+      const rowClass = String(fila[fila.length - 1] === 'REVISAR' || fila[fila.length - 1] === 'CANCELADA' ? fila[fila.length - 1] : fila[clase === 'emitidas' ? 7 : 11]).toUpperCase();
       return `<tr class="${escapeHtml(rowClass)}">${fila.map((valor, index) => `<td class="${index >= moneyStart && index <= moneyEnd ? 'number' : ''}">${formatValue(valor, index >= moneyStart && index <= moneyEnd)}</td>`).join('')}</tr>`;
     }).join('')
     : `<tr><td colspan="${tabla.encabezados.length}">Sin CFDI aplicables para el periodo seleccionado.</td></tr>`;

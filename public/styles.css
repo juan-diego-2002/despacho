@@ -373,7 +373,7 @@ tr.PPD td {
 }
 
 tr.COMPLEMENTO td {
-  background: #fff0b8;
+  background: #d9eaf7;
 }
 
 tr.CANCELADA td {
@@ -385,8 +385,9 @@ tr.REVISAR td {
 }
 
 tfoot td {
-  background: #fff2cc;
+  background: #e8f7f1;
   font-weight: 700;
+  color: #0d684b;
 }
 
 .warnings {
