@@ -376,6 +376,10 @@ tr.COMPLEMENTO td {
   background: #d9eaf7;
 }
 
+tr.NC td {
+  background: #f8d7da;
+}
+
 tr.CANCELADA td {
   background: #f4cdcd;
 }
