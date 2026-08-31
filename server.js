@@ -45,8 +45,8 @@ app.post('/api/procesar', upload.fields([
 app.post('/api/exportar', express.json({ limit: '20mb' }), async (req, res) => {
   try {
     const buffer = await crearExcel(req.body);
-    res.setHeader('Content-Type', 'application/vnd.ms-excel; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="cedula-cfdi.xls"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="cedula-cfdi.xlsx"');
     res.send(buffer);
   } catch (error) {
     res.status(400).json({ error: error.message });
