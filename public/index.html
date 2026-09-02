@@ -17,6 +17,35 @@
 
   <main>
     <section class="panel controls">
+      <div class="field mode-field">
+        <label>Tipo de configuración</label>
+        <div class="mode-tabs" role="tablist">
+          <button class="mode-tab active" type="button" data-mode="clientes">Clientes</button>
+          <button class="mode-tab" type="button" data-mode="personalizada">Cédula personalizada</button>
+        </div>
+        <input id="modoCedula" type="hidden" value="clientes">
+      </div>
+      <div class="field client-field">
+        <label for="cliente">Clientes</label>
+        <select id="cliente">
+          <option value="casa_nicho">1.- Casa Nicho</option><option value="corpes">2.- Corpes</option>
+          <option value="amanda_sanchez">3.- Amanda Sanchez</option><option value="gesell">4.- Gesell</option>
+          <option value="inmobiliaria_saraguato">5.- Inmobiliaria Saraguato</option><option value="julia_angelica">6.- Julia Angelica</option>
+          <option value="leonardo">7.- Leonardo (Leo)</option><option value="johan" selected>8.- Johan</option>
+          <option value="jose_francisco">9.- Jose Francisco</option><option value="ruben">10.- Ruben</option>
+          <option value="minerva">11.- Minerva</option><option value="teresa">12.- Teresa</option>
+          <option value="jose_carlos">13.- Jose Carlos</option><option value="alvaro">14.- Alvaro</option>
+          <option value="luis_morales">15.- Luis Morales</option><option value="laura_kristell">16.- Laura Kristell</option>
+          <option value="maria_kairene">17.- Maria kairene</option><option value="daniel">18.- Daniel (Dani)</option>
+        </select>
+      </div>
+      <div class="field hotel-field hidden">
+        <label for="ivaHotel">IVA de ingresos</label>
+        <select id="ivaHotel">
+          <option value="8">8%</option>
+          <option value="16">16%</option>
+        </select>
+      </div>
       <div class="field">
         <label for="modo">Periodo</label>
         <select id="modo">
@@ -56,6 +85,15 @@
           <option value="4">4: Oct - Dic</option>
         </select>
       </div>
+    </section>
+
+    <section id="customColumns" class="panel custom-columns hidden">
+      <div><h2>Columnas de emitidas</h2><div class="check-grid">
+        <label><input type="checkbox" name="colEmitidas" value="ingresos" checked> Ingresos</label><label><input type="checkbox" name="colEmitidas" value="exento" checked> Exento</label><label><input type="checkbox" name="colEmitidas" value="iva16" checked> IVA 16%</label><label><input type="checkbox" name="colEmitidas" value="subtotal"> Subtotal</label><label><input type="checkbox" name="colEmitidas" value="retIsr"> Ret. ISR</label><label><input type="checkbox" name="colEmitidas" value="retIva"> Ret. IVA</label><label><input type="checkbox" name="colEmitidas" value="total" checked> Total</label>
+      </div></div>
+      <div><h2>Columnas de recibidas</h2><div class="check-grid">
+        <label><input type="checkbox" name="colRecibidas" value="gravado8" checked> Gravado 8%</label><label><input type="checkbox" name="colRecibidas" value="gravado16" checked> Gravado 16%</label><label><input type="checkbox" name="colRecibidas" value="tasa0"> Tasa 0%</label><label><input type="checkbox" name="colRecibidas" value="exento" checked> Exento</label><label><input type="checkbox" name="colRecibidas" value="subtotal" checked> Subtotal</label><label><input type="checkbox" name="colRecibidas" value="iva8" checked> IVA 8%</label><label><input type="checkbox" name="colRecibidas" value="iva16" checked> IVA 16%</label><label><input type="checkbox" name="colRecibidas" value="ieps"> IEPS</label><label><input type="checkbox" name="colRecibidas" value="retIsr"> Ret. ISR</label><label><input type="checkbox" name="colRecibidas" value="retIva"> Ret. IVA</label><label><input type="checkbox" name="colRecibidas" value="total" checked> Pago neto</label>
+      </div></div>
     </section>
 
     <section class="upload-grid">
