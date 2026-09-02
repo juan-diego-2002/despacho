@@ -73,9 +73,68 @@ main {
 
 .controls {
   display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 16px;
   padding: 20px;
+}
+.mode-field { grid-column: span 2; }
+.mode-tabs { display: flex; gap: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: #f4f7fa; }
+.mode-tab { flex: 1; min-height: 38px; border: 0; border-radius: 6px; background: transparent; color: #496071; font-weight: 700; cursor: pointer; }
+.mode-tab.active { background: var(--blue); color: #fff; box-shadow: 0 3px 9px rgba(29,102,208,.22); }
+.custom-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; margin-top: 18px; padding: 20px; }
+.custom-columns h2 { margin-bottom: 12px; }
+.check-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(135px,1fr)); gap: 8px; }
+.check-grid label { padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: #f8fbfd; font-size: 13px; }
+
+.hotel-help {
+  padding: 10px 14px;
+  background: #fff8d9;
+  border-bottom: 1px solid #eadb92;
+  color: #655000;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hotel-table td.editable {
+  min-width: 126px;
+  padding: 4px;
+  background: #fff8d9;
+}
+
+.hotel-table td.editable input,
+.hotel-table td.editable select {
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 7px;
+  border: 1px solid #d7bd43;
+  border-radius: 4px;
+  background: #fffdf2;
+}
+
+.hotel-table .calc {
+  background: #eef6ff;
+  font-weight: 700;
+}
+
+.hotel-table .reference {
+  background: #f3f4f6;
+  color: #56616c;
+}
+
+.hotel-table .mismatch {
+  background: #ffe2e2;
+  color: #982828;
+  font-weight: 700;
+}
+
+.hotel-table .ok {
+  background: #e6f7ee;
+  color: #126747;
+  font-weight: 700;
+}
+
+.hotel-table th {
+  position: static;
 }
 
 .field label {
@@ -369,11 +428,15 @@ td.number {
 }
 
 tr.PPD td {
-  background: #fff8dd;
+  background: #fcdb57;
 }
 
 tr.COMPLEMENTO td {
-  background: #fff0b8;
+  background: #9fb0ff;
+}
+
+tr.NC td {
+  background: #f8cbad;
 }
 
 tr.CANCELADA td {
@@ -385,8 +448,9 @@ tr.REVISAR td {
 }
 
 tfoot td {
-  background: #fff2cc;
+  background: #e8f7f1;
   font-weight: 700;
+  color: #0d684b;
 }
 
 .warnings {

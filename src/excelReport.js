@@ -1,4 +1,13 @@
 const ExcelJS = require('exceljs');
+const { crearExcelHoteleria } = require('./hotelReport');
+
+const COLORES_ESTADO = {
+    PPD: 'FCDB57',
+    COMPLEMENTO: '9FB0FF',
+    NC: 'F8CBAD',
+    CANCELADA: 'FC3030',
+    REVISAR: 'F4CCCC'
+};
 
 /**
  * ============================================================
@@ -27,6 +36,10 @@ const ExcelJS = require('exceljs');
  *
  */
 async function crearExcel(reporte) {
+
+    if (reporte.tipoCedula === 'hoteleria') {
+        return crearExcelHoteleria(reporte);
+    }
 
     const workbook = new ExcelJS.Workbook();
 
@@ -482,11 +495,17 @@ function crearHojaMes(
             nombreMes.substring(0, 31)
         );
 
+    const cantidadColumnas = Math.max(
+        reporte.emitidas?.encabezados?.length || 0,
+        reporte.recibidas?.encabezados?.length || 0,
+        14
+    );
+
     // =========================================================
     // ENCABEZADO
     // =========================================================
 
-    hoja.mergeCells('A1:N1');
+    hoja.mergeCells(1, 1, 1, cantidadColumnas);
 
     hoja.getCell('A1').value =
         reporte.cliente?.nombre ||
@@ -501,7 +520,7 @@ function crearHojaMes(
         horizontal: 'center'
     };
 
-    hoja.mergeCells('A2:N2');
+    hoja.mergeCells(2, 1, 2, cantidadColumnas);
 
     hoja.getCell('A2').value =
         `RFC: ${
@@ -518,7 +537,7 @@ function crearHojaMes(
         horizontal: 'center'
     };
 
-    hoja.mergeCells('A3:N3');
+    hoja.mergeCells(3, 1, 3, cantidadColumnas);
 
     hoja.getCell('A3').value =
         `REPORTE FINANCIERO - ${nombreMes}`;
@@ -536,7 +555,7 @@ function crearHojaMes(
     // INFORMACIÓN DEL MES
     // =========================================================
 
-    hoja.mergeCells('A4:N4');
+    hoja.mergeCells(4, 1, 4, cantidadColumnas);
 
     hoja.getCell('A4').value =
         `CFDI emitidas: ${filasEmitidas.length} | ` +
@@ -811,6 +830,8 @@ function agregarTabla(
 
     for (const datos of filas) {
 
+        const estado = obtenerEstadoFila(datos, encabezados);
+
         datos.forEach(
             (valor, index) => {
 
@@ -853,11 +874,7 @@ function agregarTabla(
                 // MONEDA EMITIDAS
                 // -------------------------------------------------
 
-                if (
-                    tipo === 'emitidas' &&
-                    index >= 3 &&
-                    index <= 6
-                ) {
+                if (esColumnaMonetaria(encabezados, index)) {
 
                     cell.numFmt =
                         '$#,##0.00';
@@ -871,69 +888,16 @@ function agregarTabla(
                 // MONEDA RECIBIDAS
                 // -------------------------------------------------
 
-                if (
-                    tipo === 'recibidas' &&
-                    index >= 3 &&
-                    index <= 9
-                ) {
-
-                    cell.numFmt =
-                        '$#,##0.00';
-
-                    cell.alignment = {
-                        horizontal: 'right'
-                    };
-                }
-
                 // -------------------------------------------------
                 // ESTATUS
                 // -------------------------------------------------
 
-                const texto =
-                    String(
-                        valor ?? ''
-                    ).toUpperCase();
-
-                if (texto === 'CANCELADA') {
-
+                if (estado) {
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
                         fgColor: {
-                            argb: 'EA9999'
-                        }
-                    };
-                }
-
-                if (texto === 'REVISAR') {
-
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: {
-                            argb: 'F4CCCC'
-                        }
-                    };
-                }
-
-                if (texto === 'COMPLEMENTO') {
-
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: {
-                            argb: 'FFE699'
-                        }
-                    };
-                }
-
-                if (texto === 'PPD') {
-
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: {
-                            argb: 'FFF2CC'
+                            argb: COLORES_ESTADO[estado]
                         }
                     };
                 }
@@ -950,7 +914,7 @@ function agregarTabla(
     const totales =
         calcularTotalesTabla(
             filas,
-            tipo
+            encabezados
         );
 
     encabezados.forEach(
@@ -968,26 +932,7 @@ function agregarTabla(
                     'TOTAL';
             }
 
-            if (
-                tipo === 'emitidas' &&
-                index >= 3 &&
-                index <= 6
-            ) {
-
-                cell.value =
-                    Number(
-                        totales[index] || 0
-                    );
-
-                cell.numFmt =
-                    '$#,##0.00';
-            }
-
-            if (
-                tipo === 'recibidas' &&
-                index >= 3 &&
-                index <= 9
-            ) {
+            if (esColumnaMonetaria(encabezados, index)) {
 
                 cell.value =
                     Number(
@@ -1021,6 +966,29 @@ function agregarTabla(
 }
 
 
+function obtenerEstadoFila(fila, encabezados) {
+
+    const indiceEstatus = (encabezados || []).findIndex(
+        encabezado => String(encabezado || '').trim().toUpperCase() === 'ESTATUS'
+    );
+    const indiceMetodo = (encabezados || []).findIndex(
+        encabezado => String(encabezado || '').trim().toUpperCase().startsWith('TIPO / METODO')
+    );
+    const estatus = indiceEstatus === -1 ? fila[fila.length - 1] : fila[indiceEstatus];
+    const metodo = indiceMetodo === -1 ? '' : fila[indiceMetodo];
+    const estado = ['REVISAR', 'CANCELADA'].includes(String(estatus || '').toUpperCase())
+        ? estatus
+        : metodo;
+
+    const texto =
+        String(estado ?? '').toUpperCase();
+
+    return COLORES_ESTADO[texto]
+        ? texto
+        : null;
+}
+
+
 /**
  * ============================================================
  * CALCULAR TOTALES DE LA TABLA
@@ -1028,26 +996,14 @@ function agregarTabla(
  */
 function calcularTotalesTabla(
     filas,
-    tipo
+    encabezados
 ) {
 
     const totales = {};
 
-    const inicio =
-        tipo === 'emitidas'
-            ? 3
-            : 3;
+    for (let i = 0; i < encabezados.length; i++) {
 
-    const fin =
-        tipo === 'emitidas'
-            ? 6
-            : 9;
-
-    for (
-        let i = inicio;
-        i <= fin;
-        i++
-    ) {
+        if (!esColumnaMonetaria(encabezados, i)) continue;
 
         totales[i] =
             filas.reduce(
@@ -1064,6 +1020,20 @@ function calcularTotalesTabla(
     }
 
     return totales;
+}
+
+function esColumnaMonetaria(encabezados, indice) {
+
+    if (indice < 3) return false;
+    const encabezado = String(encabezados?.[indice] || '').trim().toUpperCase();
+    return ![
+        'CASO',
+        'TIPO / METODO',
+        'TIPO / MÉTODO',
+        'RFC TERCERO',
+        'UUID',
+        'ESTATUS'
+    ].includes(encabezado);
 }
 
 
@@ -1221,13 +1191,13 @@ function crearHojaResumen(
         const totalEmitidas =
             calcularTotalFilas(
                 emitidas,
-                6
+                obtenerIndiceTotal(reporte.emitidas?.encabezados, 6)
             );
 
         const totalRecibidas =
             calcularTotalFilas(
                 recibidas,
-                9
+                obtenerIndiceTotal(reporte.recibidas?.encabezados, 10)
             );
 
         granTotalEmitidas +=
@@ -1402,6 +1372,21 @@ function calcularTotalFilas(
     }
 
     return total;
+}
+
+function obtenerIndiceTotal(encabezados, respaldo) {
+
+    const indice =
+        (encabezados || []).findIndex(
+            encabezado =>
+                String(encabezado || '')
+                    .trim()
+                    .toUpperCase() === 'TOTAL'
+        );
+
+    return indice === -1
+        ? respaldo
+        : indice;
 }
 
 

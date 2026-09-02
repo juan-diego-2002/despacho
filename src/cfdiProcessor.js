@@ -172,7 +172,10 @@ async function procesarLoteCfdi({ emitidas, recibidas, filtro }) {
       registros: emitidasFiltradas.map(registro => ({
         fechaIso: registro.fechaIso,
         fechaOrden: registro.fechaOrden,
-        fila: registro.fila
+        fila: registro.fila,
+        hotelEmitida: registro.hotelEmitida,
+        detalleFiscal: registro.detalleFiscal,
+        advertencias: registro.advertencias
       })),
 
       totales: sumarColumnas(
@@ -194,6 +197,7 @@ async function procesarLoteCfdi({ emitidas, recibidas, filtro }) {
         'SUBTOTAL',
         'IVA 8%',
         'IVA 16%',
+        'IEPS',
         'TOTAL',
         'TIPO / METODO',
         'RFC TERCERO',
@@ -210,13 +214,14 @@ async function procesarLoteCfdi({ emitidas, recibidas, filtro }) {
       registros: recibidasFiltradas.map(registro => ({
         fechaIso: registro.fechaIso,
         fechaOrden: registro.fechaOrden,
-        fila: registro.fila
+        fila: registro.fila,
+        hotelRecibida: registro.hotelRecibida
       })),
 
       totales: sumarColumnas(
         filasRecibidas,
         3,
-        9
+        10
       )
     },
 
@@ -262,38 +267,28 @@ async function extraerXmls(files) {
         .toLowerCase()
         .endsWith('.zip')
     ) {
-
-      const zip =
-        await JSZip.loadAsync(file.buffer);
-
-      const entries =
-        Object.keys(zip.files);
-
-      for (const entryName of entries) {
-
-        const entry =
-          zip.files[entryName];
-
-        if (
-          !entry.dir &&
-          entryName
-            .toLowerCase()
-            .endsWith('.xml')
-        ) {
-
-          xmls.push({
-            contenido:
-              await entry.async('string'),
-
-            origen:
-              `${nombre} > ${entryName}`
-          });
-        }
-      }
+      xmls.push(...await extraerXmlsDeZip(file.buffer, nombre));
     }
   }
 
   return xmls;
+}
+
+async function extraerXmlsDeZip(buffer, origen, nivel = 0) {
+  if (nivel > 4) throw new Error(`El ZIP tiene demasiados niveles internos: ${origen}`);
+  const encontrados = [];
+  const zip = await JSZip.loadAsync(buffer);
+  for (const entryName of Object.keys(zip.files)) {
+    const entry = zip.files[entryName];
+    if (entry.dir) continue;
+    const ruta = `${origen} > ${entryName}`;
+    if (entryName.toLowerCase().endsWith('.xml')) {
+      encontrados.push({ contenido: await entry.async('string'), origen: ruta });
+    } else if (entryName.toLowerCase().endsWith('.zip')) {
+      encontrados.push(...await extraerXmlsDeZip(await entry.async('nodebuffer'), ruta, nivel + 1));
+    }
+  }
+  return encontrados;
 }
 
 
@@ -603,14 +598,17 @@ function procesarXmlCfdi(
     );
   }
 
-  if (tipoComprobante !== 'I') {
+  if (
+    tipoComprobante !== 'I' &&
+    tipoComprobante !== 'E'
+  ) {
 
     advertencias.push([
       `EXCLUIDO TIPO ${tipoComprobante || 'VACIO'}`,
       tipo,
       factura,
       origen,
-      'La cedula integra CFDI I y complementos P; este tipo se excluye.'
+      'La cedula integra CFDI I, notas de credito E y complementos P; este tipo se excluye.'
     ]);
 
     return registroExcluido(
@@ -629,7 +627,7 @@ function procesarXmlCfdi(
       tipo,
       factura,
       origen,
-      'El CFDI tipo I no tiene importe positivo.'
+        'El CFDI no tiene importe positivo.'
     ]);
 
     return registroExcluido(
@@ -646,6 +644,23 @@ function procesarXmlCfdi(
 
   const conceptos =
     analizarConceptos(root);
+
+  const hotelEmitida =
+    tipo === 'emitida'
+      ? obtenerImportesHotel(root, tipoComprobante)
+      : null;
+
+  const retencionesCfdi = obtenerRetencionesHotel(root);
+
+  const hotelRecibida =
+    tipo === 'recibida'
+      ? obtenerImportesHotelRecibida(
+          root,
+          tipoComprobante,
+          subtotalCfdi,
+          descuento
+        )
+      : null;
 
   if (descuento !== 0) {
 
@@ -713,11 +728,45 @@ function procesarXmlCfdi(
           origen,
           advertencias,
           formatearFecha(fechaIso),
-          nombreEmisor
+          nombreEmisor,
+          obtenerBasesIvaCfdi(root),
+          subtotalCfdi,
+          obtenerIePsCfdi(
+            root,
+            subtotalCfdi,
+            conceptos
+          ),
         );
 
+  if (tipoComprobante === 'E') {
+
+    const ultimaColumnaMonetaria =
+      tipo === 'emitida'
+        ? 6
+        : 10;
+
+    for (
+      let columna = 3;
+      columna <= ultimaColumnaMonetaria;
+      columna++
+    ) {
+      fila[columna] =
+        -Math.abs(Number(fila[columna]) || 0);
+    }
+
+    advertencias.push([
+      'NOTA DE CREDITO',
+      tipo,
+      factura,
+      origen,
+      'CFDI tipo E integrado con importes negativos.'
+    ]);
+  }
+
   fila.push(
-    clasificarMetodo(metodoPago)
+    tipoComprobante === 'E'
+      ? 'NC'
+      : clasificarMetodo(metodoPago)
   );
 
   fila.push(
@@ -730,8 +779,8 @@ function procesarXmlCfdi(
 
   const baseCedula =
     tipo === 'emitida'
-      ? fila[3] + fila[4]
-      : fila[6];
+      ? Math.abs(fila[3] + fila[4])
+      : Math.abs(fila[6]);
 
   if (
     Math.abs(
@@ -760,8 +809,178 @@ function procesarXmlCfdi(
     factura,
     uuid,
     clienteInfo,
+    hotelEmitida,
+    hotelRecibida,
+    detalleFiscal: {
+      retencionIsr: redondearDinero(retencionesCfdi.isr * (tipoComprobante === 'E' ? -1 : 1)),
+      retencionIva: redondearDinero(retencionesCfdi.iva * (tipoComprobante === 'E' ? -1 : 1))
+    },
     advertencias
   };
+}
+
+
+/* =========================================================
+   CLASIFICACION AUTOMATICA PARA CEDULA HOTELERA
+   ========================================================= */
+
+function obtenerImportesHotel(root, tipoComprobante) {
+
+  const resultado = {
+    hospedaje: 0,
+    alimentos: 0,
+    otros: 0
+  };
+
+  for (
+    const concepto of children(
+      child(root, 'Conceptos'),
+      'Concepto'
+    )
+  ) {
+
+    const importe =
+      atributoNumero(concepto, 'Importe') -
+      atributoNumero(concepto, 'Descuento');
+
+    const descripcion = atributoTexto(
+      concepto,
+      'Descripcion',
+      ''
+    );
+
+    const clave = atributoTexto(
+      concepto,
+      'ClaveProdServ',
+      ''
+    );
+
+    if (
+      /^901118/.test(clave) ||
+      /hospedaje|habitacion|alojamiento/i.test(descripcion)
+    ) {
+      resultado.hospedaje += importe;
+    } else if (
+      /^901015/.test(clave) ||
+      /alimento|comida|restaurante|desayuno|cena/i.test(descripcion)
+    ) {
+      resultado.alimentos += importe;
+    } else {
+      resultado.otros += importe;
+    }
+  }
+
+  const signo = tipoComprobante === 'E' ? -1 : 1;
+
+  return {
+    hospedaje: redondearDinero(resultado.hospedaje * signo),
+    alimentos: redondearDinero(resultado.alimentos * signo),
+    otros: redondearDinero(resultado.otros * signo)
+  };
+}
+
+function redondearDinero(valor) {
+  return Math.round((Number(valor) || 0) * 100) / 100;
+}
+
+function obtenerImportesHotelRecibida(
+  root,
+  tipoComprobante,
+  subtotalCfdi,
+  descuento
+) {
+
+  const signo = tipoComprobante === 'E' ? -1 : 1;
+  const iva = obtenerIvaCfdi(root);
+  const bases = obtenerBasesIvaCfdi(root);
+  const trasladosIva = obtenerTrasladosCfdi(root, '002');
+  const ieps = obtenerIePsCfdi(
+    root,
+    subtotalCfdi,
+    analizarConceptos(root)
+  );
+
+  let tasa0 = 0;
+  let exento = 0;
+
+  for (const traslado of trasladosIva) {
+    const tipoFactor = atributoTexto(traslado, 'TipoFactor', '');
+    const tasa = atributoNumero(traslado, 'TasaOCuota');
+    const base = atributoNumero(traslado, 'Base');
+
+    if (tipoFactor === 'Exento') {
+      exento += base;
+    } else if (tasasIguales(tasa, 0)) {
+      tasa0 += base;
+    }
+  }
+
+  const base8 = normalizarCero(bases.base8);
+  const base16 = normalizarCero(bases.base16);
+
+  if (
+    !trasladosIva.length &&
+    !base8 &&
+    !base16
+  ) {
+    exento = Math.max(
+      Number(subtotalCfdi) - Number(descuento),
+      0
+    );
+  }
+
+  const esSoloTasaCeroConIeps =
+    tasa0 > 0 &&
+    !base8 &&
+    !base16 &&
+    !exento &&
+    ieps > 0;
+
+  if (esSoloTasaCeroConIeps) {
+    tasa0 = Math.max(
+      Number(subtotalCfdi) - Number(descuento),
+      0
+    );
+  }
+
+  const retenciones = obtenerRetencionesHotel(root);
+  const totalCfdi = atributoNumero(root, 'Total');
+  // El pago neto siempre debe respetar el Total sellado en el CFDI. En productos
+  // con IEPS e IVA a tasa 0, el IEPS no aparece en las columnas visibles de IVA,
+  // pero sí forma parte del total pagado y de la conciliación.
+  const pagoNeto = totalCfdi;
+
+  return {
+    base8: redondearDinero(base8 * signo),
+    base16: redondearDinero(base16 * signo),
+    tasa0: redondearDinero(tasa0 * signo),
+    exento: redondearDinero(exento * signo),
+    iva8: redondearDinero(iva.iva8 * signo),
+    iva16: redondearDinero(iva.iva16 * signo),
+    ieps: redondearDinero(ieps * signo),
+    descuento: redondearDinero(Number(descuento) * signo),
+    retencionIsr: redondearDinero(retenciones.isr * signo),
+    retencionIva: redondearDinero(retenciones.iva * signo),
+    pagoNeto: redondearDinero(pagoNeto * signo),
+    incluirIepsEnConciliacion: true
+  };
+}
+
+function obtenerRetencionesHotel(root) {
+  const resultado = { isr: 0, iva: 0 };
+  const retenciones = children(
+    child(child(root, 'Impuestos'), 'Retenciones'),
+    'Retencion'
+  );
+
+  for (const retencion of retenciones) {
+    const impuesto = atributoTexto(retencion, 'Impuesto', '');
+    const importe = atributoNumero(retencion, 'Importe');
+    if (impuesto === '001') resultado.isr += importe;
+    if (impuesto === '002') resultado.iva += importe;
+  }
+
+  return resultado;
 }
 
 
@@ -1036,13 +1255,20 @@ function procesarComplementoPago(
       ? pago.iva16 / 0.16
       : 0;
 
+  const ieps = obtenerIePsCfdi(
+    root,
+    atributoNumero(root, 'SubTotal'),
+    analizarConceptos(root)
+  );
+
   const exento =
     normalizarCero(
       pago.total -
       base8 -
       base16 -
       pago.iva8 -
-      pago.iva16
+      pago.iva16-
+      ieps
     );
 
   let fila;
@@ -1084,28 +1310,58 @@ function procesarComplementoPago(
 
   } else {
 
-    fila = [
-      formatearFecha(fechaIso),
-      `${factura} (P)`,
-      nombreEmisor,
-      base8,
-      base16,
-      exento,
-      base8 + base16 + exento,
-      pago.iva8,
-      pago.iva16,
-      pago.total,
-      'COMPLEMENTO',
-      atributoTexto(
-        child(root, 'Emisor'),
-        'Rfc',
-        ''
-      ),
-      uuid,
-      determinarEstatus(advertencias)
-    ];
-  }
+  // ==========================================
+  // IEPS DEL COMPLEMENTO DE PAGO
+  // ==========================================
+  // ==========================================
+  // RECALCULAR EXENTO DESCONTANDO IEPS
+  // ==========================================
+  const exentoConIeps =
+    normalizarCero(
+      pago.total -
+      base8 -
+      base16 -
+      pago.iva8 -
+      pago.iva16 -
+      ieps
+    );
 
+  // ==========================================
+  // FILA DE RECIBIDAS / COMPLEMENTO DE PAGO
+  // DEBE TENER EXACTAMENTE 15 COLUMNAS
+  // ==========================================
+  fila = [
+    formatearFecha(fechaIso),        // 0 FECHA
+    `${factura} (P)`,                // 1 FACTURA
+    nombreEmisor,                    // 2 TERCERO / CONCEPTO
+
+    base8,                            // 3 GTO 8%
+    base16,                           // 4 GTO 16%
+    exentoConIeps,                    // 5 EXENTO
+
+    base8 + base16 + exentoConIeps,  // 6 SUBTOTAL
+
+    pago.iva8,                        // 7 IVA 8%
+    pago.iva16,                       // 8 IVA 16%
+
+    ieps,                             // 9 IEPS  ← AQUÍ VA
+
+    pago.total,                       // 10 TOTAL
+
+    'COMPLEMENTO',                    // 11 TIPO / METODO
+
+    atributoTexto(
+      child(root, 'Emisor'),
+      'Rfc',
+      ''
+    ),                                // 12 RFC TERCERO
+
+    uuid,                             // 13 UUID
+
+    determinarEstatus(advertencias)   // 14 ESTATUS
+  ];
+
+}
   advertencias.push([
     'PAGO INTEGRADO',
     tipo,
@@ -1173,10 +1429,14 @@ function calcularEmitida(
   ) {
 
     ingresos =
-      total / 1.16;
+      Math.abs(iva.iva16) >= CONFIG_CEDULAS.TOLERANCIA
+        ? iva.iva16 / 0.16
+        : total / 1.16;
 
     iva16 =
-      ingresos * 0.16;
+      Math.abs(iva.iva16) >= CONFIG_CEDULAS.TOLERANCIA
+        ? iva.iva16
+        : ingresos * 0.16;
 
   } else if (
     conceptos.tieneIva16 ||
@@ -1227,7 +1487,10 @@ function calcularRecibida(
   origen,
   advertencias,
   fecha,
-  emisor
+  emisor,
+  basesIva,
+  subtotalCfdi,
+  ieps,
 ) {
 
   let gto8 = 0;
@@ -1235,77 +1498,27 @@ function calcularRecibida(
   let exento = 0;
   let iva8 = 0;
   let iva16 = 0;
+  ieps =  Number(ieps) || 0;
 
   const tieneNoGravado =
     conceptos.tieneExento ||
     conceptos.tieneTasaCero ||
     conceptos.tieneNoObjeto;
 
-  const solo16 =
-    conceptos.tieneIva16 &&
-    !conceptos.tieneIva8 &&
-    !tieneNoGravado;
+  gto8 = basesIva.base8;
+  gto16 = basesIva.base16;
+  iva8 = iva.iva8;
+  iva16 = iva.iva16;
 
-  const solo8 =
-    conceptos.tieneIva8 &&
-    !conceptos.tieneIva16 &&
-    !tieneNoGravado;
-
-  if (solo16) {
-
-    gto16 =
-      total / 1.16;
-
-    iva16 =
-      gto16 * 0.16;
-
-  } else if (solo8) {
-
-    gto8 =
-      total / 1.08;
-
-    iva8 =
-      gto8 * 0.08;
-
-  } else if (
-    conceptos.tieneIva8 ||
-    conceptos.tieneIva16 ||
-    Math.abs(iva.iva8) >=
-      CONFIG_CEDULAS.TOLERANCIA ||
-    Math.abs(iva.iva16) >=
-      CONFIG_CEDULAS.TOLERANCIA
-  ) {
-
-    iva8 = iva.iva8;
-    iva16 = iva.iva16;
-
-    gto8 =
-      iva8 === 0
-        ? 0
-        : iva8 / 0.08;
-
-    gto16 =
-      iva16 === 0
-        ? 0
-        : iva16 / 0.16;
-
-    exento =
-      normalizarCero(
-        total -
-        gto8 -
-        gto16 -
-        iva8 -
-        iva16
-      );
-
-  } else {
-
-    exento = total;
-  }
+  exento =
+    normalizarCero(
+      subtotalCfdi -
+      gto8 -
+      gto16 -
+      ieps
+    );
 
   if (
-    !solo8 &&
-    !solo16 &&
     !tieneNoGravado &&
     conceptos.tieneIva8 &&
     conceptos.tieneIva16
@@ -1327,9 +1540,10 @@ function calcularRecibida(
     gto8,
     gto16,
     exento,
-    gto8 + gto16 + exento,
+    subtotalCfdi,
     iva8,
     iva16,
+    ieps,
     total
   ];
 }
@@ -1347,7 +1561,8 @@ function analizarConceptos(root) {
     tieneExento: false,
     tieneTasaCero: false,
     tieneNoObjeto: false,
-    tieneOtraTasa: false
+    tieneOtraTasa: false,
+    tieneCombustible: false
   };
 
   for (
@@ -1373,6 +1588,22 @@ function analizarConceptos(root) {
         concepto,
         'Descuento'
       );
+
+    const descripcionConcepto = [
+      atributoTexto(concepto, 'Descripcion', ''),
+      atributoTexto(concepto, 'ClaveProdServ', ''),
+      atributoTexto(concepto, 'NoIdentificacion', '')
+    ].join(' ');
+
+    if (
+      /combustible|gasolina|diesel|gasoleo|gas lp|gas natural|fuel/i.test(
+        descripcionConcepto
+      ) || /^151015\d{2}/.test(
+        atributoTexto(concepto, 'ClaveProdServ', '')
+      )
+    ) {
+      resultado.tieneCombustible = true;
+    }
 
     const tieneImporteNeto =
       Math.abs(importeNeto) >=
@@ -1508,6 +1739,115 @@ function obtenerIvaCfdi(root) {
   }
 
   return resultado;
+}
+
+function obtenerBasesIvaCfdi(root) {
+  const resultado = {
+    base8: 0,
+    base16: 0
+  };
+
+  for (const traslado of obtenerTrasladosCfdi(root, '002')) {
+    const tipoFactor = atributoTexto(
+      traslado,
+      'TipoFactor',
+      ''
+    );
+
+    if (tipoFactor === 'Exento') {
+      continue;
+    }
+
+    const tasa = atributoNumero(
+      traslado,
+      'TasaOCuota'
+    );
+
+    if (tasasIguales(tasa, 0.08)) {
+      resultado.base8 += atributoNumero(
+        traslado,
+        'Base'
+      );
+    } else if (tasasIguales(tasa, 0.16)) {
+      resultado.base16 += atributoNumero(
+        traslado,
+        'Base'
+      );
+    }
+  }
+
+  return resultado;
+}
+
+function obtenerIePsCfdi(
+  root,
+  subtotalCfdi,
+  conceptos
+) {
+  const traslados = obtenerTrasladosCfdi(root, '003');
+  let ieps = 0;
+  let encontroIePs = false;
+
+  for (const traslado of traslados) {
+    if (
+      atributoTexto(traslado, 'Impuesto', '') !== '003'
+    ) continue;
+
+    encontroIePs = true;
+    ieps += atributoNumero(traslado, 'Importe');
+  }
+
+  if (encontroIePs) {
+    return normalizarCero(ieps);
+  }
+
+  if (!conceptos || !conceptos.tieneCombustible) {
+    return 0;
+  }
+
+  const basesIva = sumarBasesIvaCfdi(root);
+
+  return normalizarCero(
+    Number(subtotalCfdi) - basesIva
+  );
+}
+
+function sumarBasesIvaCfdi(root) {
+  const traslados = obtenerTrasladosCfdi(root, '002');
+
+  return traslados.reduce(
+    (suma, traslado) => {
+      if (
+        atributoTexto(traslado, 'Impuesto', '') !== '002' ||
+        atributoTexto(traslado, 'TipoFactor', '') === 'Exento'
+      ) {
+        return suma;
+      }
+
+      return suma + atributoNumero(traslado, 'Base');
+    },
+    0
+  );
+}
+
+function obtenerTrasladosCfdi(root, impuesto) {
+  const trasladosGlobales = children(
+    child(child(root, 'Impuestos'), 'Traslados'),
+    'Traslado'
+  ).filter(
+    traslado => atributoTexto(traslado, 'Impuesto', '') === impuesto
+  );
+
+  if (trasladosGlobales.length) {
+    return trasladosGlobales;
+  }
+
+  return buscarElementos(
+    child(root, 'Conceptos'),
+    'Traslado'
+  ).filter(
+    traslado => atributoTexto(traslado, 'Impuesto', '') === impuesto
+  );
 }
 
 function sumarIvaEnImpuestos(
