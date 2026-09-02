@@ -3,6 +3,8 @@ const multer = require('multer');
 const path = require('path');
 const { procesarLoteCfdi } = require('./src/cfdiProcessor');
 const { crearExcel } = require('./src/excelReport');
+const { crearPerfilHoteleria } = require('./src/hotelProfile');
+const { aplicarPerfilCliente } = require('./src/clientProfiles');
 
 const app = express();
 const upload = multer({
@@ -36,6 +38,22 @@ app.post('/api/procesar', upload.fields([
       recibidas: req.files.recibidas || [],
       filtro
     });
+    const clienteId = req.body.cliente || 'johan';
+    const modoCedula = req.body.modoCedula || 'clientes';
+    const perfilesHotel = ['casa_nicho', 'amanda_sanchez', 'inmobiliaria_saraguato'];
+    if (perfilesHotel.includes(clienteId) || modoCedula === 'personalizada') {
+      resultado.hoteleria = crearPerfilHoteleria(resultado, {
+        ivaHotel: Number(req.body.ivaHotel || 8)
+      });
+    }
+    let personalizado = null;
+    if (modoCedula === 'personalizada') {
+      personalizado = {
+        emitidas: JSON.parse(req.body.columnasEmitidas || '[]'),
+        recibidas: JSON.parse(req.body.columnasRecibidas || '[]')
+      };
+    }
+    aplicarPerfilCliente(resultado, clienteId, personalizado);
     res.json(resultado);
   } catch (error) {
     res.status(400).json({ error: error.message });
